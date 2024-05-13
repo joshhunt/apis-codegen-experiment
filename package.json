@@ -1,0 +1,23 @@
+{
+  "name": "grafana-apis-codegen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@rtk-query/codegen-openapi": "^1.2.0",
+    "@types/node": "^20.12.11",
+    "emphasize": "^7.0.0",
+    "oazapfts": "^6.1.0",
+    "openapi-types": "^12.1.3",
+    "prettier": "^3.2.5",
+    "tsx": "^4.10.1",
+    "typescript": "^5.4.5"
+  }
+}
