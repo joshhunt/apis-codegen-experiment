@@ -8,11 +8,7 @@ import ApiGenerator, {
   isValidIdentifier,
 } from "oazapfts/generate";
 import { preprocessSpec } from "./preProcess.js";
-import {
-  EndpointDef,
-  GroupVersionKind,
-  OperationDef,
-} from "./types.js";
+import { EndpointDef, GroupVersionKind, OperationDef } from "./types.js";
 import { generateEndpoint } from "./generateEndpoint.js";
 import { createObject, printNode } from "./tsUtils.js";
 import * as emphasize from "emphasize";
@@ -23,7 +19,8 @@ import {
   CommonLibName,
 } from "./commonLib.js";
 
-const SPEC_PATH = "../grafana/pkg/tests/apis/playlist/testdata/openapi.json";
+const SPEC_PATH = "./specs/playlist.json";
+const OUTPUT_PATH = "./output/playlist.gen.ts";
 
 const RESOURCE_TYPE_NAME = "Resource";
 const RESOURCE_LIST_TYPE_NAME = "ResourceList";
@@ -36,7 +33,7 @@ const tsResultFile = ts.createSourceFile(
   "",
   ts.ScriptTarget.Latest,
   /*setParentNodes*/ false,
-  ts.ScriptKind.TS,
+  ts.ScriptKind.TS
 );
 const tsPrinter = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
 
@@ -51,7 +48,7 @@ const interfaces: Record<
   ts.InterfaceDeclaration | ts.TypeAliasDeclaration
 > = {};
 function registerInterface(
-  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration,
+  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration
 ) {
   const name = declaration.name.escapedText.toString();
   if (name in interfaces) {
@@ -104,7 +101,7 @@ const operations = Object.entries(spec.paths).flatMap(
         };
         return def;
       });
-  },
+  }
 );
 
 // ###
@@ -127,9 +124,9 @@ const endpointsObject = ts.factory.createObjectLiteralExpression(
   endpoints.map((endpoint) => {
     return ts.factory.createPropertyAssignment(
       ts.factory.createStringLiteral(endpoint.endpointName),
-      endpoint.builderCall,
+      endpoint.builderCall
     );
-  }),
+  })
 );
 
 console.log("\n++++++\n");
@@ -150,7 +147,7 @@ for (const endpoint of endpoints) {
 
     const kindTsName = createAndRegisterKindInterface(
       groupVersionKind,
-      specSchema,
+      specSchema
     );
 
     let returnType: ts.TypeNode | undefined = undefined;
@@ -164,17 +161,17 @@ for (const endpoint of endpoints) {
       returnType = createLibTypeReference(
         useCommonLibImport(CommonLibResource),
         kindTsName,
-        groupVersionKind.group,
+        groupVersionKind.group
       );
     } else if (action === "list") {
       returnType = createLibTypeReference(
         useCommonLibImport(CommonLibResourceList),
         kindTsName,
-        groupVersionKind.group,
+        groupVersionKind.group
       );
     } else if (action === "delete" || action === "deletecollection") {
       returnType = ts.factory.createTypeReferenceNode(
-        useCommonLibImport(CommonLibMetaStatus),
+        useCommonLibImport(CommonLibMetaStatus)
       );
     }
 
@@ -183,7 +180,7 @@ for (const endpoint of endpoints) {
         [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
         `${capitalize(endpoint.endpointName)}Response`,
         [],
-        returnType,
+        returnType
       );
 
       registerInterface(exportedResponseType);
@@ -200,20 +197,20 @@ for (const endpoint of endpoints) {
     const paramType = apiGen.getTypeFromSchema(
       param.schema,
       undefined,
-      "writeOnly",
+      "writeOnly"
     );
 
     const name = isValidIdentifier(param.name)
       ? param.name
       : ts.factory.createComputedPropertyName(
-          ts.factory.createStringLiteral(param.name),
+          ts.factory.createStringLiteral(param.name)
         );
 
     const propSig = ts.factory.createPropertySignature(
       undefined,
       name,
       createQuestionToken(!param.required),
-      paramType,
+      paramType
     );
     paramTypes.push(propSig);
   }
@@ -224,7 +221,7 @@ for (const endpoint of endpoints) {
     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
     name,
     undefined,
-    paramsType,
+    paramsType
   );
 
   registerInterface(paramsTypeAlias);
@@ -242,12 +239,12 @@ const injectEndpointsObjectLiteralExpression = createObject({
         endpointBuilder,
         undefined,
         undefined,
-        undefined,
+        undefined
       ),
     ],
     undefined,
     undefined,
-    ts.factory.createParenthesizedExpression(endpointsObject),
+    ts.factory.createParenthesizedExpression(endpointsObject)
   ),
 });
 
@@ -261,13 +258,13 @@ const injectedRtkApiNode = ts.factory.createVariableStatement(
       ts.factory.createCallExpression(
         ts.factory.createPropertyAccessExpression(
           ts.factory.createIdentifier("api"),
-          ts.factory.createIdentifier("injectEndpoints"),
+          ts.factory.createIdentifier("injectEndpoints")
         ),
         undefined,
-        [injectEndpointsObjectLiteralExpression],
-      ),
+        [injectEndpointsObjectLiteralExpression]
+      )
     ),
-  ]),
+  ])
 );
 
 function findSchemaForGroupVersionKind(gvk: GroupVersionKind) {
@@ -293,7 +290,7 @@ function findSchemaForGroupVersionKind(gvk: GroupVersionKind) {
 }
 
 function getSpecSchema(
-  schema: OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
+  schema: OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject
 ) {
   const specProperty = schema?.properties?.spec;
   const specSchema = specProperty && apiGen.resolve(specProperty);
@@ -328,7 +325,7 @@ function gkvTypeExists(gvk: GroupVersionKind) {
 
 function createAndRegisterKindInterface(
   groupVersionKind: GroupVersionKind,
-  specSchema: OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject,
+  specSchema: OpenAPIV3.ArraySchemaObject | OpenAPIV3.NonArraySchemaObject
 ) {
   const tsName = capitalize(groupVersionKind.kind);
 
@@ -342,14 +339,14 @@ function createAndRegisterKindInterface(
     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
     tsName,
     [],
-    kindTsTypeDecl,
+    kindTsTypeDecl
   );
 
   const typeDeclWithComment = ts.addSyntheticLeadingComment(
     kindTsTypeAlias,
     ts.SyntaxKind.SingleLineCommentTrivia,
     ` ${JSON.stringify(groupVersionKind)} `,
-    true,
+    true
   );
 
   registerGKVType(groupVersionKind, typeDeclWithComment);
@@ -360,14 +357,14 @@ function createAndRegisterKindInterface(
 function createLibTypeReference(
   typeName: string,
   resourceTypeName: string,
-  group: string,
+  group: string
 ) {
   return ts.factory.createExpressionWithTypeArguments(
     ts.factory.createIdentifier(typeName),
     [
       ts.factory.createTypeReferenceNode(resourceTypeName),
       ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(group)),
-    ],
+    ]
   );
 }
 
@@ -378,17 +375,17 @@ const commonLibImportMembers = Array.from(usedCommonLibImports).map((name) =>
   ts.factory.createImportSpecifier(
     true,
     undefined,
-    ts.factory.createIdentifier(name),
-  ),
+    ts.factory.createIdentifier(name)
+  )
 );
 const commonLibImport = ts.factory.createImportDeclaration(
   [],
   ts.factory.createImportClause(
     false,
     undefined,
-    ts.factory.createNamedImports(commonLibImportMembers),
+    ts.factory.createNamedImports(commonLibImportMembers)
   ),
-  ts.factory.createStringLiteral("./commonLib"),
+  ts.factory.createStringLiteral("./commonLib")
 );
 
 const sourceFile = ts.factory.createSourceFile(
@@ -400,13 +397,13 @@ const sourceFile = ts.factory.createSourceFile(
     ...Object.values(interfaces),
   ],
   ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
-  ts.NodeFlags.None,
+  ts.NodeFlags.None
 );
 
 const printedSourceFile = tsPrinter.printNode(
   ts.EmitHint.Unspecified,
   sourceFile,
-  tsResultFile,
+  tsResultFile
 );
 
 const prettySourceFile = await prettier.format(printedSourceFile, {
@@ -414,7 +411,10 @@ const prettySourceFile = await prettier.format(printedSourceFile, {
 });
 
 const emph = emphasize.createEmphasize(emphasize.common);
-console.log(emph.highlight("ts", prettySourceFile).value);
+const coloredSourceFile = emph.highlight("ts", prettySourceFile).value;
+console.log(coloredSourceFile);
+
+await fs.writeFile(OUTPUT_PATH, prettySourceFile);
 
 function capitalize(str: string) {
   return str.replace(str[0], str[0].toUpperCase());
