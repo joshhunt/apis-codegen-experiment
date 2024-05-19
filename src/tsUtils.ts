@@ -13,7 +13,7 @@ export function createObject(
   return ts.factory.createObjectLiteralExpression(properties);
 }
 
-export async function printNode(node: ts.Node) {
+export async function printNode(node: ts.Node, doPretty = true) {
   const tsResultFile = ts.createSourceFile(
     "someFileName.ts",
     "",
@@ -28,9 +28,11 @@ export async function printNode(node: ts.Node) {
     tsResultFile
   );
 
-  const pretty = await prettier.format(rawString, {
-    parser: "typescript",
-  });
+  const pretty = doPretty
+    ? await prettier.format(rawString, {
+        parser: "typescript",
+      })
+    : rawString;
 
   const emph = emphasize.createEmphasize(emphasize.common);
   console.log(emph.highlight("ts", pretty).value);

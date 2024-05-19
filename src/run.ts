@@ -3,7 +3,6 @@ import type { OpenAPIV3 } from "openapi-types";
 import * as prettier from "prettier";
 import ts from "typescript";
 import ApiGenerator, {
-  getOperationName as _getOperationName,
   createQuestionToken,
   isValidIdentifier,
 } from "oazapfts/generate";
@@ -15,11 +14,11 @@ import * as emphasize from "emphasize";
 import {
   Resource as CommonLibResource,
   ResourceList as CommonLibResourceList,
-  MetaStatus as CommonLibMetaStatus,
   CommonLibName,
 } from "./commonLib.js";
+import { getAllOperations, prepareEndpoint } from "./prepareEndpoints.js";
 
-const SPEC_PATH = "./specs/playlist.json";
+const SPEC_PATH = "./specs/scopes.json";
 const OUTPUT_PATH = "./output/playlist.gen.ts";
 
 const RESOURCE_TYPE_NAME = "Resource";
@@ -59,9 +58,7 @@ function registerInterface(
 }
 
 const specContent = await fs.readFile(SPEC_PATH, "utf-8");
-const spec: OpenAPIV3.Document = JSON.parse(specContent);
-preprocessSpec(spec);
-// console.log(spec.paths);
+const spec: OpenAPIV3.Document = preprocessSpec(JSON.parse(specContent));
 
 const apiGen = new ApiGenerator(spec, {
   unionUndefined: false,
@@ -71,38 +68,13 @@ const apiGen = new ApiGenerator(spec, {
 
 const VALID_METHODS = ["get", "post", "put", "delete", "patch"];
 
-const operations = Object.entries(spec.paths).flatMap(
-  ([path, operationsForPath]) => {
-    if (!operationsForPath) return [];
+const operations = getAllOperations(apiGen, spec);
 
-    const pathParameters = operationsForPath.parameters;
+for (const operation of operations) {
+  await prepareEndpoint(apiGen, operation);
+}
 
-    return Object.entries(operationsForPath)
-      .filter(([method]) => VALID_METHODS.includes(method))
-      .map(([method, operation]) => {
-        if (typeof operation === "string") {
-          throw new Error("expected operation to be an object");
-        }
-
-        const resolvedPathParams = pathParameters?.map(apiGen.resolve);
-        const operationParams =
-          "parameters" in operation && operation.parameters
-            ? operation.parameters.map(apiGen.resolve)
-            : [];
-
-        const def: OperationDef = {
-          method,
-          path,
-          operation: {
-            ...operation,
-            parameters: operationParams,
-          } as OperationDef["operation"],
-          pathParameters: resolvedPathParams,
-        };
-        return def;
-      });
-  }
-);
+process.exit(0);
 
 // ###
 // ## New gen

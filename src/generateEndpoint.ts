@@ -1,5 +1,5 @@
 import { getOperationName, isValidIdentifier } from "oazapfts/generate";
-import { GroupVersionKind, K8sOperation, OperationDef } from "./types.js";
+import { GroupVersionKind, OpenAPIOperation, OperationDef } from "./types.js";
 import { capitalize } from "./utils.js";
 import ts from "typescript";
 import { accessProperty, createObject, printNode } from "./tsUtils.js";
@@ -27,7 +27,7 @@ const BUILD_DOT_MUTATION = ts.factory.createPropertyAccessExpression(
 export async function generateEndpoint(operationDef: OperationDef) {
   console.log("------");
   const { method, path, operation } = operationDef;
-  const op = operation as K8sOperation;
+  const op = operation as OpenAPIOperation;
 
   const endpointName = getEndpointName(operationDef);
 
@@ -96,7 +96,7 @@ export async function generateEndpoint(operationDef: OperationDef) {
 
 function getEndpointName(operationDef: OperationDef) {
   const { method, path, operation, pathParameters } = operationDef;
-  const op = operation as K8sOperation;
+  const op = operation;
 
   const k8sAction = op["x-kubernetes-action"];
   const k8sGroupVersionKind = op["x-kubernetes-group-version-kind"];
@@ -240,8 +240,8 @@ function generatePathExpression(
           const templateValue = replacedParam
             ? replacedParam
             : isFlatArg
-            ? rootObject
-            : accessProperty(rootObject, prop);
+              ? rootObject
+              : accessProperty(rootObject, prop);
 
           return ts.factory.createTemplateSpan(
             templateValue,
