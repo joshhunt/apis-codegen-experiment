@@ -18,7 +18,7 @@ import {
 } from "./commonLib.js";
 import { getAllOperations, prepareEndpoint } from "./prepareEndpoints.js";
 
-const SPEC_PATH = "./specs/scopes.json";
+const SPEC_PATH = "./specs/playlist.json";
 const OUTPUT_PATH = "./output/playlist.gen.ts";
 
 const RESOURCE_TYPE_NAME = "Resource";
@@ -73,6 +73,14 @@ const operations = getAllOperations(apiGen, spec);
 for (const operation of operations) {
   await prepareEndpoint(apiGen, operation);
 }
+
+console.log("\n...rest...");
+const sourceFile2 = ts.factory.createSourceFile(
+  [...apiGen.aliases],
+  ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
+  ts.NodeFlags.None
+);
+await printNode(sourceFile2);
 
 process.exit(0);
 

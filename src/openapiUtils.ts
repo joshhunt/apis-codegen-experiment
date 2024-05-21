@@ -7,9 +7,20 @@ export function getReturnSchema(
   operation: OpenAPIOperation
 ): OpenAPIV3.SchemaObject | undefined {
   const response200 = apiGen.resolve(operation.responses["200"]);
-  const returnSpec = apiGen.resolve(
-    response200.content?.["application/json"].schema
-  );
+  return getSchemaFromContent(apiGen, response200.content);
+}
 
-  return returnSpec;
+const VALID_CONTENT_TYPES = ["application/json", "*/*"];
+
+export function getSchemaFromContent(
+  apiGen: ApiGenerator,
+  content: OpenAPIV3.RequestBodyObject["content"] | undefined
+): OpenAPIV3.SchemaObject | undefined {
+  for (const contentType of VALID_CONTENT_TYPES) {
+    if (content?.[contentType]?.schema) {
+      return apiGen.resolve(content[contentType].schema);
+    }
+  }
+
+  return undefined;
 }

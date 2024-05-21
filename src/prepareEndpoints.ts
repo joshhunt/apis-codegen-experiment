@@ -3,7 +3,8 @@ import { OpenAPIV3 } from "openapi-types";
 import { GroupVersionKind, OpenAPIOperation, OperationDef } from "./types.js";
 import { capitalize } from "./utils.js";
 import { printNode } from "./tsUtils.js";
-import { getReturnSchema } from "./openapiUtils.js";
+import { getReturnSchema, getSchemaFromContent } from "./openapiUtils.js";
+import ts from "typescript";
 
 const VALID_METHODS = ["get", "post", "put", "delete", "patch"];
 
@@ -176,6 +177,97 @@ function getReturnType(
   };
 }
 
+function getArgsType(apiGen: ApiGenerator, operationDef: OperationDef) {
+  const { operation } = operationDef;
+  const endpointName = getEndpointName(operationDef);
+  const typeAliasName = capitalize(endpointName) + "ApiArgs";
+
+  const k8Action = operation["x-kubernetes-action"];
+  const k8GroupVersionKind = operation["x-kubernetes-group-version-kind"];
+
+  if (!k8Action || !k8GroupVersionKind) {
+    return null; // TODO!!
+  }
+
+  const operationParams = operation.parameters?.map(apiGen.resolve) ?? [];
+  const allParams = operationDef.pathParameters?.concat(operationParams) ?? [];
+
+  const queryParams = allParams.filter((v) => v.in === "query");
+  const pathParams = allParams.filter((v) => v.in === "path");
+
+  const requestBody = getSchemaFromContent(
+    apiGen,
+    apiGen.resolve(operation.requestBody)?.content
+  );
+
+  let finalParams = pathParams;
+
+  if (k8Action === "get") {
+    // it's fine as is!
+  } else if (k8Action === "list") {
+    const VALID_LIST_PARAMS = [
+      "limit",
+      "continue",
+      "fieldSelector",
+      "labelSelector",
+    ];
+    const validQueryParams = queryParams.filter((v) =>
+      VALID_LIST_PARAMS.includes(v.name)
+    );
+    finalParams = finalParams.concat(validQueryParams);
+  } else if (k8Action === "post") {
+    const containingSchema = findSchemaForGroupVersionKind(
+      apiGen,
+      k8GroupVersionKind
+    );
+    const kindSchema =
+      containingSchema && getSpecSchema(apiGen, containingSchema);
+
+    if (!kindSchema) throw new Error("no kind schema found");
+
+    // This is tricky. We want to express the params as a type like
+    // {
+    //   namespace: string,
+    //   body: ResourceForCreate<KindSchema>
+    // }
+    // But we don't really have a way (yet) to express that a parameter is actually a generic...
+    //
+    // We probably want to have a seperate type description for the body?
+
+    finalParams.push({
+      name: "body", // TODO better name
+      schema: requestBody,
+      in: "body",
+    });
+  }
+
+  if (finalParams.length) {
+    const paramsSchema: OpenAPIV3.NonArraySchemaObject = {
+      type: "object",
+      properties: {},
+      required: [],
+    };
+
+    for (const param of finalParams) {
+      if (!param.schema) continue;
+      if (!paramsSchema.properties) continue;
+
+      paramsSchema.properties[param.name] = param.schema;
+
+      if (param.required) {
+        paramsSchema.required?.push(param.name);
+      }
+    }
+
+    return {
+      typeType: "idk",
+      typeAliasName,
+      paramsSchema,
+      k8sAction: k8Action,
+    };
+  }
+}
+
 export async function prepareEndpoint(
   apiGen: ApiGenerator,
   operationDef: OperationDef
@@ -188,15 +280,19 @@ export async function prepareEndpoint(
   const k8Action = operation["x-kubernetes-action"];
   const k8GroupVersionKind = operation["x-kubernetes-group-version-kind"];
 
-  console.log("k8Action:", k8Action);
   console.log(
-    "k8GroupVersionKind:",
+    "K8s",
+    k8Action?.toUpperCase(),
     k8GroupVersionKind?.group,
     k8GroupVersionKind?.version,
     k8GroupVersionKind?.kind
   );
 
-  const { typeType, ...returnType } = getReturnType(apiGen, operationDef);
+  //
+  // Return type
+  //
+  const fullReturnType = getReturnType(apiGen, operationDef);
+  const { typeType, ...returnType } = fullReturnType;
 
   if ("schema" in returnType) {
     const { schema, typeAliasName } = returnType;
@@ -214,6 +310,21 @@ export async function prepareEndpoint(
     const schemaTsType = apiGen.getTypeFromSchema(returnType.kindSchema);
     await printNode(schemaTsType, false);
   }
+
+  //
+  // Args type
+  //
+
+  const argsType = getArgsType(apiGen, operationDef);
+  console.log("args", argsType);
+  if (argsType?.paramsSchema) {
+    const tsType = apiGen.getTypeFromSchema(argsType.paramsSchema);
+    await printNode(tsType, false);
+  }
+
+  //
+  // Rest
+  //
 }
 
 function findSchemaForGroupVersionKind(
